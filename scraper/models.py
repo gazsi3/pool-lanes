@@ -13,9 +13,10 @@ class RaceEntry:
     dsq: bool = False
     dns: bool = False
     dnf: bool = False
+    world_record: bool = False
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "lane": self.lane,
             "name": self.name,
             "nationality": self.nationality,
@@ -26,6 +27,9 @@ class RaceEntry:
             "dns": self.dns,
             "dnf": self.dnf,
         }
+        if self.world_record:
+            d["world_record"] = True
+        return d
 
 
 @dataclass
@@ -50,7 +54,7 @@ class Final:
             "event": self.event,
             "gender": self.gender,
             "is_relay": self.is_relay,
-            "meet_id": self.meet_id,
+            "meet_id": str(self.meet_id),
             "event_id": self.event_id,
             "entries": [e.to_dict() for e in self.entries],
         }

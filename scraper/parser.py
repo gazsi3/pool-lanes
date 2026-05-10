@@ -1,149 +1,159 @@
 """
-Parse swimrankings.net event result pages into Final objects.
+Parse /fina/events/{discipline_id} JSON into Final objects.
 
-Expected column order in result tables:
-  RANK | HEAT | LANE | NAME | NOC | BORN | R.T. | [split times...] | TIME | GAP | FINA PTS
+Response structure:
+  { DisciplineName, Gender, SportCode, Heats: [ { PhaseName, Name, Results: [...] } ] }
 
-The parser searches for LANE and other critical columns by header text,
-so it is resilient to column-count variations between events.
+Each result in the Finals heat has:
+  Lane, Rank, FullName, FirstName, LastName, NAT, Time, RT, Points,
+  MedalTag (G/S/B), RecordTags (list), AthleteResultAge, BiographyId
 """
-
-import logging
+from __future__ import annotations
 import re
+import logging
 from typing import Optional
 
-from bs4 import BeautifulSoup, Tag
-
-from .config import RELAY_EVENTS, MIN_VALID_ENTRIES
+from .config import API_BASE, MIN_VALID_ENTRIES, SWIM_SPORT_CODE
+from .discovery import DisciplineRef
 from .models import Final, RaceEntry
+from .utils import get_json
 
 log = logging.getLogger(__name__)
 
-_STATUS_TOKENS = {"DSQ", "DNS", "DNF", "DQ", "NT", "NS"}
+_RELAY_KEYWORDS = re.compile(r"\brelay\b|\bx\d+\b", re.IGNORECASE)
+_GENDER_MAP = {"Women": "F", "Men": "M", "Mixed": "X", "1": "F", "2": "M"}
 
 
-def parse_event_page(html: str, meet_meta: dict, event_meta: dict) -> Optional[Final]:
-    soup = BeautifulSoup(html, "lxml")
-
-    table = _find_results_table(soup)
-    if table is None:
-        log.debug("No results table on event %s", event_meta["event_id"])
-        return None
-
-    headers, col_idx = _parse_headers(table)
-    if col_idx.get("lane") is None:
-        log.debug("No LANE column for event %s", event_meta["event_id"])
-        return None
-
-    entries = []
-    for row in table.find_all("tr")[1:]:
-        cells = row.find_all(["td", "th"])
-        if len(cells) < 4:
-            continue
-        entry = _parse_row(cells, col_idx)
-        if entry is not None:
-            entries.append(entry)
-
-    if len([e for e in entries if not e.dns]) < MIN_VALID_ENTRIES:
-        log.warning(
-            "Too few valid entries (%d) for %s %s %s — skipping",
-            len(entries),
-            meet_meta["year"],
-            meet_meta["competition"],
-            event_meta["event"],
-        )
-        return None
-
-    return Final(
-        competition=meet_meta["competition"],
-        year=meet_meta["year"],
-        location=meet_meta["location"],
-        pool=meet_meta["pool"],
-        event=event_meta["event"],
-        gender=event_meta["gender"],
-        is_relay=event_meta["is_relay"],
-        entries=entries,
-        meet_id=meet_meta["meet_id"],
-        event_id=event_meta["event_id"],
-    )
+def _is_relay(discipline_name: str) -> bool:
+    return bool(_RELAY_KEYWORDS.search(discipline_name))
 
 
-def _find_results_table(soup: BeautifulSoup) -> Optional[Tag]:
-    # Try known class names first
-    for cls in ("rankingTable", "results", "eventresults", "meetResultsTable"):
-        t = soup.find("table", class_=cls)
-        if t:
-            return t
-    # Fall back: find any table that has a LANE header
-    for t in soup.find_all("table"):
-        headers_text = " ".join(
-            th.get_text(strip=True).upper() for th in t.find_all("th")
-        )
-        if "LANE" in headers_text:
-            return t
-    return None
+def _parse_gender(heat: dict, disc_data: dict) -> str:
+    raw = heat.get("Gender") or disc_data.get("Gender") or ""
+    return _GENDER_MAP.get(raw, raw[:1].upper() or "?")
 
 
-def _parse_headers(table: Tag) -> tuple[list[str], dict[str, int]]:
-    header_row = table.find("tr")
-    if header_row is None:
-        return [], {}
-    headers = [th.get_text(strip=True).upper() for th in header_row.find_all(["th", "td"])]
-    idx: dict[str, int] = {}
-    for i, h in enumerate(headers):
-        if h == "RANK" and "rank" not in idx:
-            idx["rank"] = i
-        elif h == "LANE" and "lane" not in idx:
-            idx["lane"] = i
-        elif h in ("NAME", "ATHLETE", "SURNAME & NAME") and "name" not in idx:
-            idx["name"] = i
-        elif h in ("NOC", "NAT", "COUNTRY") and "noc" not in idx:
-            idx["noc"] = i
-        elif h in ("TIME", "RESULT") and "time" not in idx:
-            idx["time"] = i
-    return headers, idx
+def _normalize_event_name(discipline_name: str) -> str:
+    """
+    'Women\'s 50m Freestyle'  →  '50m Freestyle'
+    'Men\'s 4x100m Freestyle Relay'  →  '4x100m Freestyle Relay'
+    'Mixed 4x100m Medley Relay'  →  'Mixed 4x100m Medley Relay'
+    """
+    name = re.sub(r"^(Women's|Men's)\s+", "", discipline_name)
+    return name.strip()
 
 
-def _parse_row(cells: list[Tag], col_idx: dict[str, int]) -> Optional[RaceEntry]:
-    def text(i: int) -> str:
-        if i >= len(cells):
-            return ""
-        return cells[i].get_text(strip=True)
-
-    lane_text = text(col_idx["lane"])
+def _parse_result(r: dict) -> Optional[RaceEntry]:
+    """Convert one API result object into a RaceEntry."""
+    lane_raw = r.get("Lane")
     try:
-        lane = int(lane_text)
-    except ValueError:
-        return None  # header or section row
+        lane = int(lane_raw)
+    except (TypeError, ValueError):
+        return None
 
-    rank_text = text(col_idx.get("rank", 0))
-    time_text = text(col_idx.get("time", len(cells) - 3))
-    name_text = text(col_idx.get("name", 3))
-    noc_text = text(col_idx.get("noc", 4))
+    # Detect non-finishers by presence of status codes
+    status = (r.get("Status") or "").upper()
+    time_str = r.get("Time") or ""
+    dsq = "DSQ" in status or "DQ" in status
+    dns = "DNS" in status or lane == 0
+    dnf = "DNF" in status
 
-    combined = f"{rank_text} {time_text}".upper()
-    dsq = "DSQ" in combined or "DQ" in combined
-    dns = "DNS" in combined or "NS" in combined
-    dnf = "DNF" in combined
+    # World / Olympic record tags
+    record_tags = r.get("RecordTags") or []
+    world_record = any("WR" in (t or "").upper() or "OR" in (t or "").upper()
+                       for t in record_tags)
 
     position: Optional[int] = None
     if not (dsq or dns or dnf):
-        m = re.match(r"(\d+)", rank_text)
-        if m:
-            position = int(m.group(1))
+        rank = r.get("Rank")
+        if rank is not None:
+            try:
+                position = int(rank)
+            except (TypeError, ValueError):
+                pass
 
-    final_time: Optional[str] = None
-    if not dsq and not dns and time_text and not any(t in time_text.upper() for t in _STATUS_TOKENS):
-        final_time = time_text
+    # Name: prefer FullName, fall back to First + Last
+    full = r.get("FullName") or ""
+    if not full:
+        first = r.get("FirstName") or ""
+        last  = r.get("LastName") or ""
+        full  = f"{first} {last}".strip()
+
+    nat = r.get("NAT") or ""
+
+    final_time: Optional[str] = time_str if (time_str and not dns and not dsq) else None
 
     return RaceEntry(
         lane=lane,
-        name=name_text,
-        nationality=noc_text,
+        name=full,
+        nationality=nat,
         seed_time=None,
         final_time=final_time,
         position=position,
         dsq=dsq,
         dns=dns,
         dnf=dnf,
+        world_record=world_record,
+    )
+
+
+def _find_final_heat(heats: list[dict]) -> Optional[dict]:
+    """Return the heat whose PhaseName is 'Finals' (preferring Name=='Final')."""
+    finals = [h for h in heats if h.get("PhaseName") == "Finals"]
+    if not finals:
+        return None
+    # Prefer the heat literally named "Final" (not "Final A / Final B")
+    named_final = next((h for h in finals if h.get("Name") == "Final"), None)
+    return named_final or finals[0]
+
+
+def parse_discipline(ref: DisciplineRef) -> Optional[Final]:
+    """
+    Fetch /fina/events/{discipline_id} and return the Finals heat as a Final object.
+    Returns None if no Finals heat or too few valid entries.
+    """
+    url = f"{API_BASE}/events/{ref.discipline_id}"
+    data = get_json(url)
+    if not data:
+        return None
+
+    sport_code = data.get("SportCode", "")
+    if sport_code and sport_code != SWIM_SPORT_CODE:
+        return None
+
+    heats = data.get("Heats") or []
+    final_heat = _find_final_heat(heats)
+    if not final_heat:
+        log.debug("No Finals heat for %s", ref.discipline_name)
+        return None
+
+    results_raw = final_heat.get("Results") or []
+    entries: list[RaceEntry] = []
+    for r in results_raw:
+        entry = _parse_result(r)
+        if entry is not None:
+            entries.append(entry)
+
+    # DNS swimmers don't occupy a lane — don't count them toward minimum
+    scoreable = [e for e in entries if not e.dns]
+    if len(scoreable) < MIN_VALID_ENTRIES:
+        log.warning("Too few entries (%d) for %s %s %d — skipping",
+                    len(scoreable), ref.comp.competition_label,
+                    ref.discipline_name, ref.comp.year)
+        return None
+
+    gender = _parse_gender(final_heat, data)
+    event_name = _normalize_event_name(ref.discipline_name)
+
+    return Final(
+        competition=ref.comp.competition_label,
+        year=ref.comp.year,
+        location=ref.comp.location,
+        pool=ref.comp.pool,
+        event=event_name,
+        gender=gender,
+        is_relay=_is_relay(ref.discipline_name),
+        entries=entries,
+        meet_id=ref.comp.id,
+        event_id=ref.discipline_id,
     )

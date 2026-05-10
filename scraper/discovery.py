@@ -1,141 +1,123 @@
 """
-Discover meet IDs and event IDs from swimrankings.net.
+Discover all relevant competitions and their swimming discipline IDs
+using the worldaquatics.com REST API.
 
-URL patterns (verified via browser inspection):
-  Meet list:   /index.php?page=meetSelect&selectPage=MEET_LIST&meetType=<N>&startYear=<Y>&endYear=<Y>
-  Meet detail: /index.php?page=meetDetail&meetId=<ID>
-  Event result:/index.php?page=eventDetail&eventId=<ID>
-
-NOTE: meetType values and exact URL parameters must be confirmed on first scrape run.
-The constants in config.py should be updated if swimrankings uses different codes.
+Two-step:
+ 1. Paginate /fina/competitions (100/page) to find competitions matching our filters
+ 2. For each, call /fina/competitions/{id}/events to get swimming discipline UUIDs
 """
-
+from __future__ import annotations
+import time
 import logging
-import re
-from bs4 import BeautifulSoup
+from dataclasses import dataclass
 
-from .config import BASE_URL, COMPETITION_CONFIGS, RELAY_EVENTS, INDIVIDUAL_EVENTS
-from .utils import BrowserContext, fetch_page
+from .config import (
+    API_BASE, RATE_LIMIT,
+    COMPETITION_FILTERS, DATE_FROM, DATE_TO, SWIM_SPORT_CODE,
+)
+from .utils import get_json
 
 log = logging.getLogger(__name__)
 
 
-def discover_all_meets(ctx: BrowserContext) -> list[dict]:
+@dataclass
+class CompetitionMeta:
+    id: int
+    name: str
+    competition_label: str   # "Olympics", "World Championships", etc.
+    pool: str                # "LCM" or "SCM"
+    year: int
+    location: str
+
+
+@dataclass
+class DisciplineRef:
+    comp: CompetitionMeta
+    discipline_id: str       # UUID for /fina/events/{id}
+    discipline_name: str     # e.g. "Women's 50m Freestyle"
+
+
+def _match_competition(name: str) -> tuple[str, str] | None:
+    """Return (label, pool) if this competition name matches our filters."""
+    nl = name.lower()
+    for substr, label, pool in COMPETITION_FILTERS:
+        if substr in nl:
+            return label, pool
+    return None
+
+
+def discover_competitions(max_pages: int | None = None) -> list[CompetitionMeta]:
     """
-    Returns list of meet metadata dicts:
-      {meet_id, competition, year, pool, location}
+    Paginate /fina/competitions (100 per page) and return filtered competitions.
+    max_pages: cap for quick testing; None = all pages.
     """
-    meets = []
-    for cfg in COMPETITION_CONFIGS:
-        for year in cfg["years"]:
-            found = _discover_meets_for(ctx, cfg, year)
-            meets.extend(found)
-            log.info("Discovered %d meets for %s %d", len(found), cfg["competition"], year)
-    return meets
+    comps: list[CompetitionMeta] = []
+    page = 0
+    total_pages = 1  # updated on first response
 
-
-def _discover_meets_for(ctx: BrowserContext, cfg: dict, year: int) -> list[dict]:
-    url = f"{BASE_URL}/index.php"
-    params = {
-        "page": "meetSelect",
-        "selectPage": "MEET_LIST",
-        "meetType": cfg["meet_type"],
-        "startYear": year,
-        "endYear": year,
-    }
-    html = fetch_page(ctx, url, params)
-    soup = BeautifulSoup(html, "lxml")
-    return _parse_meet_list(soup, cfg["competition"], cfg["pool"], year)
-
-
-def _parse_meet_list(
-    soup: BeautifulSoup, competition: str, pool: str, year: int
-) -> list[dict]:
-    meets = []
-    # Meet list rows: look for links containing meetId= in href
-    for a_tag in soup.find_all("a", href=re.compile(r"meetId=(\d+)")):
-        meet_id_match = re.search(r"meetId=(\d+)", a_tag["href"])
-        if not meet_id_match:
-            continue
-        meet_id = meet_id_match.group(1)
-        # Location is usually the link text or the parent cell
-        location = a_tag.get_text(strip=True)
-        meets.append(
-            {
-                "meet_id": meet_id,
-                "competition": competition,
-                "pool": pool,
-                "year": year,
-                "location": location,
-            }
-        )
-    return meets
-
-
-def discover_events(ctx: BrowserContext, meet: dict) -> list[dict]:
-    """
-    For a given meet, return list of final-round event metadata:
-      {event_id, event, gender, is_relay, round}
-    """
-    url = f"{BASE_URL}/index.php"
-    params = {"page": "meetDetail", "meetId": meet["meet_id"]}
-    html = fetch_page(ctx, url, params)
-    soup = BeautifulSoup(html, "lxml")
-    return _parse_event_list(soup)
-
-
-def _parse_event_list(soup: BeautifulSoup) -> list[dict]:
-    events = []
-    known_events = set(INDIVIDUAL_EVENTS) | RELAY_EVENTS
-
-    for a_tag in soup.find_all("a", href=re.compile(r"eventId=(\d+)")):
-        event_id_match = re.search(r"eventId=(\d+)", a_tag["href"])
-        if not event_id_match:
-            continue
-        event_id = event_id_match.group(1)
-        label = a_tag.get_text(strip=True)
-
-        gender, event_name, round_name = _parse_event_label(label)
-        if gender is None or round_name != "Final":
-            continue
-
-        is_relay = event_name in RELAY_EVENTS
-
-        events.append(
-            {
-                "event_id": event_id,
-                "event": event_name,
-                "gender": gender,
-                "is_relay": is_relay,
-                "round": round_name,
-            }
-        )
-    return events
-
-
-def _parse_event_label(label: str) -> tuple[str | None, str, str]:
-    """
-    Parse event link text like 'Women 100m Freestyle Final'
-    into (gender, event_name, round).
-    Returns (None, label, '') if it can't be parsed.
-    """
-    label = label.strip()
-    gender: str | None = None
-    if label.startswith("Women") or label.startswith("W "):
-        gender = "F"
-        label = label.replace("Women", "", 1).replace("W ", "", 1).strip()
-    elif label.startswith("Men") or label.startswith("M "):
-        gender = "M"
-        label = label.replace("Men", "", 1).replace("M ", "", 1).strip()
-    elif label.startswith("Mixed"):
-        gender = "X"
-        # keep "Mixed" in the event name for relays
-
-    round_name = ""
-    for r in ("Final", "Heats", "Semifinal", "Heat"):
-        if label.endswith(r):
-            round_name = r if r != "Heat" else "Heats"
-            label = label[: -len(r)].strip()
+    while page < total_pages:
+        if max_pages is not None and page >= max_pages:
             break
 
-    return gender, label, round_name
+        url = f"{API_BASE}/competitions?pageSize=100&page={page}"
+        data = get_json(url)
+        if not data:
+            break
+
+        if page == 0:
+            total_pages = data["pageInfo"]["numPages"]
+            log.info("Competitions: %d total across %d pages",
+                     data["pageInfo"]["numEntries"], total_pages)
+
+        for comp in data.get("content", []):
+            date_str = (comp.get("venueDateFrom") or comp.get("dateFrom") or "")[:10]
+            if not date_str or date_str < DATE_FROM or date_str > DATE_TO:
+                continue
+
+            match = _match_competition(comp["name"])
+            if not match:
+                continue
+
+            label, pool = match
+            comps.append(CompetitionMeta(
+                id=comp["id"],
+                name=comp["name"],
+                competition_label=label,
+                pool=pool,
+                year=int(date_str[:4]),
+                location=comp.get("location", {}).get("city", ""),
+            ))
+
+        page += 1
+        time.sleep(RATE_LIMIT / 4)  # lighter rate for pagination
+
+    log.info("Found %d relevant competitions", len(comps))
+    return comps
+
+
+def discover_disciplines(comp: CompetitionMeta) -> list[DisciplineRef]:
+    """
+    For one competition, fetch its event structure and return all swimming discipline refs.
+    """
+    url = f"{API_BASE}/competitions/{comp.id}/events"
+    data = get_json(url)
+    if not data:
+        return []
+
+    refs: list[DisciplineRef] = []
+    for sport in data.get("Sports", []):
+        if sport.get("Code") != SWIM_SPORT_CODE:
+            continue
+        for disc in sport.get("DisciplineList", []):
+            disc_id   = disc.get("Id")
+            disc_name = disc.get("DisciplineName") or disc.get("Name") or ""
+            if disc_id and disc_name:
+                refs.append(DisciplineRef(
+                    comp=comp,
+                    discipline_id=disc_id,
+                    discipline_name=disc_name,
+                ))
+
+    log.debug("  %s %d: %d swimming disciplines",
+              comp.competition_label, comp.year, len(refs))
+    return refs

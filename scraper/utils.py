@@ -1,79 +1,42 @@
 import time
 import logging
-from contextlib import contextmanager
-from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page, TimeoutError as PWTimeout
+from typing import Any
 
-from .config import CLOUDFLARE_WAIT_SECONDS, RATE_LIMIT_SECONDS, MAX_RETRIES, RETRY_BACKOFF
+import requests
+
+from .config import HEADERS, RATE_LIMIT, MAX_RETRIES, RETRY_BACKOFF
 
 log = logging.getLogger(__name__)
 
 _last_request_time: float = 0.0
 
 
-@contextmanager
-def browser_context():
-    """Yield a Playwright browser context. Caller is responsible for pages."""
-    with sync_playwright() as pw:
-        browser: Browser = pw.chromium.launch(
-            headless=True,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-            ],
-        )
-        ctx: BrowserContext = browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            locale="en-US",
-            viewport={"width": 1280, "height": 900},
-        )
-        try:
-            yield ctx
-        finally:
-            ctx.close()
-            browser.close()
-
-
-def fetch_page(ctx: BrowserContext, url: str, params: dict | None = None) -> str:
+def get_json(url: str) -> Any:
     """
-    Navigate to url (optionally with query params), wait for Cloudflare challenge
-    to resolve, return the final page HTML. Respects global rate limit.
+    HTTP GET with rate limiting and retries. Returns parsed JSON or None on error.
     """
     global _last_request_time
 
-    if params:
-        qs = "&".join(f"{k}={v}" for k, v in params.items())
-        full_url = f"{url}?{qs}" if "?" not in url else f"{url}&{qs}"
-    else:
-        full_url = url
-
-    # Rate limiting
     elapsed = time.time() - _last_request_time
-    if elapsed < RATE_LIMIT_SECONDS:
-        time.sleep(RATE_LIMIT_SECONDS - elapsed)
+    if elapsed < RATE_LIMIT:
+        time.sleep(RATE_LIMIT - elapsed)
 
-    page: Page = ctx.new_page()
-    try:
-        for attempt in range(MAX_RETRIES):
-            try:
-                page.goto(full_url, wait_until="domcontentloaded", timeout=30_000)
-                # Wait for Cloudflare JS challenge if present
-                if "Just a moment" in page.title():
-                    log.debug("Cloudflare challenge detected, waiting %ss", CLOUDFLARE_WAIT_SECONDS)
-                    time.sleep(CLOUDFLARE_WAIT_SECONDS)
-                    page.wait_for_load_state("networkidle", timeout=20_000)
-                _last_request_time = time.time()
-                return page.content()
-            except PWTimeout:
-                if attempt == MAX_RETRIES - 1:
-                    raise
-                wait = RETRY_BACKOFF * (attempt + 1)
-                log.warning("Timeout on %s (attempt %d), retrying in %ds", full_url, attempt + 1, wait)
-                time.sleep(wait)
-    finally:
-        page.close()
+    for attempt in range(MAX_RETRIES):
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=20)
+            _last_request_time = time.time()
+            if r.status_code == 200:
+                return r.json()
+            if r.status_code == 404:
+                log.debug("404 %s", url)
+                return None
+            log.warning("HTTP %d for %s (attempt %d)", r.status_code, url, attempt + 1)
+        except requests.RequestException as e:
+            log.warning("Request error for %s (attempt %d): %s", url, attempt + 1, e)
 
-    return ""
+        if attempt < MAX_RETRIES - 1:
+            wait = RETRY_BACKOFF * (attempt + 1)
+            log.info("Retrying in %ds...", wait)
+            time.sleep(wait)
+
+    return None

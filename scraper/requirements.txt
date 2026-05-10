@@ -1,3 +1,6 @@
 playwright==1.44.0
+playwright-stealth==1.0.6
+cloudscraper==1.2.71
 beautifulsoup4==4.12.3
 lxml==5.2.2
+brotli==1.1.0
