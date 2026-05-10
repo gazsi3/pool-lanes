@@ -15,16 +15,44 @@ HEADERS = {
 # Checked against lowercase competition name from /fina/competitions
 COMPETITION_FILTERS = [
     # (substring_in_name, label, pool)
+    # --- Short-course variants MUST come before long-course to avoid wrong pool label ---
+    ("world aquatics swimming championships (25m)", "World Championships", "SCM"),
+    ("fina world swimming championships (25m)",     "World Championships", "SCM"),
+    ("world swimming championships (25m)",          "World Championships", "SCM"),
+    ("european swimming championships (25m)",       "European Championships", "SCM"),
+    ("len european swimming championships (25m)",   "European Championships", "SCM"),
+    # --- Long-course ---
     ("olympic games",              "Olympics",               "LCM"),
     ("world aquatics championships","World Championships",   "LCM"),  # 2022+
     ("fina world championships",   "World Championships",   "LCM"),   # old name
-    ("world championships 2022",   "World Championships",   "LCM"),   # Budapest 2022 uses this
-    ("world aquatics swimming championships (25m)", "World Championships SCM", "SCM"),
-    ("fina world swimming championships (25m)",     "World Championships SCM", "SCM"),
-    ("world swimming championships (25m)",          "World Championships SCM", "SCM"),
+    ("len european aquatics championships",         "European Championships", "LCM"),
     ("european aquatics championships",             "European Championships", "LCM"),
     ("european swimming championships",             "European Championships", "LCM"),
-    ("len european aquatics championships",         "European Championships", "LCM"),
+]
+
+# If any of these appear in the competition name (lowercase), skip it even if
+# a COMPETITION_FILTERS keyword also matches (excludes trials, qualifiers, etc.)
+COMPETITION_EXCLUDES = [
+    "selection trial",
+    "trial for",
+    "trials",            # "Olympic Games Trials"
+    "qualifier",
+    "qualifying",
+    "qualification",     # "Olympic Games Qualification Tournament"
+    "team selection",
+    "selectivo",         # Spanish "selectivo" = selection event
+    "cancelled",
+    "junior",
+    "youth",
+    "masters",
+    "para",
+    "marathon swimming",  # open water, not pool
+    "water polo",
+    "artistic swimming",
+    "synchronised swimming",
+    "synchronised",
+    "diving",
+    "high diving",
 ]
 
 # Only keep competitions from this date range

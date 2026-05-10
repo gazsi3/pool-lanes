@@ -55,7 +55,8 @@ def run(
                 final = parse_discipline(ref)
                 if final:
                     all_finals.append(final)
-                    wr_flag = " [WR]" if any(e.world_record for e in final.entries) else ""
+                    records = [e.record_type for e in final.entries if e.record_type]
+                    wr_flag = f" [{','.join(records)}]" if records else ""
                     log.info("  + %s %s (%d entries)%s",
                              final.gender, ref.discipline_name,
                              len(final.entries), wr_flag)

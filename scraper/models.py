@@ -13,7 +13,7 @@ class RaceEntry:
     dsq: bool = False
     dns: bool = False
     dnf: bool = False
-    world_record: bool = False
+    record_type: Optional[str] = None  # "WR", "OR", "ER", "NR", etc.
 
     def to_dict(self) -> dict:
         d = {
@@ -27,8 +27,8 @@ class RaceEntry:
             "dns": self.dns,
             "dnf": self.dnf,
         }
-        if self.world_record:
-            d["world_record"] = True
+        if self.record_type:
+            d["record_type"] = self.record_type
         return d
 
 

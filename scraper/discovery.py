@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from .config import (
     API_BASE, RATE_LIMIT,
-    COMPETITION_FILTERS, DATE_FROM, DATE_TO, SWIM_SPORT_CODE,
+    COMPETITION_FILTERS, COMPETITION_EXCLUDES, DATE_FROM, DATE_TO, SWIM_SPORT_CODE,
 )
 from .utils import get_json
 
@@ -40,6 +40,8 @@ class DisciplineRef:
 def _match_competition(name: str) -> tuple[str, str] | None:
     """Return (label, pool) if this competition name matches our filters."""
     nl = name.lower()
+    if any(ex in nl for ex in COMPETITION_EXCLUDES):
+        return None
     for substr, label, pool in COMPETITION_FILTERS:
         if substr in nl:
             return label, pool

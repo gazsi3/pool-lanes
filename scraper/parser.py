@@ -58,10 +58,8 @@ def _parse_result(r: dict) -> Optional[RaceEntry]:
     dns = "DNS" in status or lane == 0
     dnf = "DNF" in status
 
-    # World / Olympic record tags
-    record_tags = r.get("RecordTags") or []
-    world_record = any("WR" in (t or "").upper() or "OR" in (t or "").upper()
-                       for t in record_tags)
+    # Record type: "WR" (World Record), "OR" (Olympic Record), "ER" (European Record), etc.
+    record_type: str | None = r.get("RecordType") or None
 
     position: Optional[int] = None
     if not (dsq or dns or dnf):
@@ -93,7 +91,7 @@ def _parse_result(r: dict) -> Optional[RaceEntry]:
         dsq=dsq,
         dns=dns,
         dnf=dnf,
-        world_record=world_record,
+        record_type=record_type,
     )
 
 

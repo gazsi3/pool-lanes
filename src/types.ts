@@ -8,6 +8,8 @@ export interface RaceEntry {
   dsq: boolean;
   dns: boolean;
   dnf: boolean;
+  /** "WR" = World Record, "OR" = Olympic Record, "ER" = European Record, etc. */
+  record_type?: string;
 }
 
 export interface Final {
