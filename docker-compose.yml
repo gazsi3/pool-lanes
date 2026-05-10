@@ -1,0 +1,43 @@
+services:
+
+  # ── Frontend dev server ───────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: dev          # only the dev stage; build stage is invoked on demand
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app             # live source mount
+      - node_modules:/app/node_modules   # isolated so host node_modules don't bleed in
+    environment:
+      - NODE_ENV=development
+
+  # ── Scraper (run on demand, not a long-running service) ───────────────────
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile.scraper
+    volumes:
+      # Write scraped data directly into the host public/data/ so the
+      # frontend dev server picks it up immediately.
+      - ./public/data:/app/public/data
+      # Mount source so code changes don't require a rebuild during dev.
+      - ./scraper:/app/scraper
+    profiles:
+      - scraper            # not started by default; use: docker compose --profile scraper run scraper
+
+  # ── Preview the production build locally ─────────────────────────────────
+  preview:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: preview
+    ports:
+      - "8080:80"
+    profiles:
+      - preview            # use: docker compose --profile preview up preview
+
+volumes:
+  node_modules:

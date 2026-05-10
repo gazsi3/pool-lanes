@@ -1,0 +1,15 @@
+# Use the official Playwright Python image — Chromium + all system deps pre-installed.
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
+
+WORKDIR /app
+
+COPY scraper/requirements.txt ./scraper/requirements.txt
+RUN pip install --no-cache-dir -r scraper/requirements.txt
+# Chromium is already installed in the base image; just link playwright to it.
+RUN playwright install chromium
+
+COPY scraper/ ./scraper/
+COPY public/  ./public/
+
+# Default: full scrape. Override CMD for targeted runs.
+CMD ["python", "-m", "scraper.main"]

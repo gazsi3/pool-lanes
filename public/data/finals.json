@@ -1,0 +1,86 @@
+[
+  {
+    "competition": "World Championships",
+    "year": 2022,
+    "location": "Budapest",
+    "pool": "LCM",
+    "event": "100m Freestyle",
+    "gender": "M",
+    "is_relay": false,
+    "meet_id": "sample",
+    "event_id": "s001",
+    "entries": [
+      { "lane": 4, "name": "Dressel C.", "nationality": "USA", "seed_time": "47.02", "final_time": "47.23", "position": 1, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 5, "name": "Popovici D.", "nationality": "ROU", "seed_time": "47.30", "final_time": "47.58", "position": 2, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 3, "name": "Shields T.", "nationality": "USA", "seed_time": "47.41", "final_time": "47.65", "position": 3, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 6, "name": "Santos N.", "nationality": "BRA", "seed_time": "47.48", "final_time": "47.73", "position": 4, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 2, "name": "Chalmers K.", "nationality": "AUS", "seed_time": "47.55", "final_time": "47.85", "position": 5, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 7, "name": "Guy J.", "nationality": "GBR", "seed_time": "47.60", "final_time": "47.90", "position": 6, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 1, "name": "Puts J.", "nationality": "NED", "seed_time": "47.72", "final_time": "47.99", "position": 7, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 8, "name": "Proud B.", "nationality": "GBR", "seed_time": "47.80", "final_time": "48.10", "position": 8, "dsq": false, "dns": false, "dnf": false }
+    ]
+  },
+  {
+    "competition": "Olympics",
+    "year": 2020,
+    "location": "Tokyo",
+    "pool": "LCM",
+    "event": "100m Freestyle",
+    "gender": "M",
+    "is_relay": false,
+    "meet_id": "sample",
+    "event_id": "s002",
+    "entries": [
+      { "lane": 5, "name": "Dressel C.", "nationality": "USA", "seed_time": "47.23", "final_time": "47.02", "position": 1, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 4, "name": "Grousset M.", "nationality": "FRA", "seed_time": "47.52", "final_time": "47.87", "position": 2, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 6, "name": "Chalmers K.", "nationality": "AUS", "seed_time": "47.60", "final_time": "47.88", "position": 3, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 3, "name": "Bousquet F.", "nationality": "FRA", "seed_time": "47.72", "final_time": "47.91", "position": 4, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 7, "name": "Guy J.", "nationality": "GBR", "seed_time": "47.80", "final_time": "47.97", "position": 5, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 2, "name": "Santos N.", "nationality": "BRA", "seed_time": "47.92", "final_time": "48.12", "position": 6, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 1, "name": "Proud B.", "nationality": "GBR", "seed_time": "48.00", "final_time": "48.22", "position": 7, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 8, "name": "Puts J.", "nationality": "NED", "seed_time": "48.10", "final_time": "48.35", "position": 8, "dsq": false, "dns": false, "dnf": false }
+    ]
+  },
+  {
+    "competition": "European Championships",
+    "year": 2022,
+    "location": "Rome",
+    "pool": "LCM",
+    "event": "200m Butterfly",
+    "gender": "M",
+    "is_relay": false,
+    "meet_id": "sample",
+    "event_id": "s003",
+    "entries": [
+      { "lane": 4, "name": "Milak K.", "nationality": "HUN", "seed_time": "1:51.25", "final_time": "1:50.34", "position": 1, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 5, "name": "Maertens L.", "nationality": "BEL", "seed_time": "1:52.10", "final_time": "1:52.85", "position": 2, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 3, "name": "Le Clos C.", "nationality": "RSA", "seed_time": "1:52.50", "final_time": "1:53.10", "position": 3, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 6, "name": "Trampitsch A.", "nationality": "AUT", "seed_time": "1:53.00", "final_time": "1:53.45", "position": 4, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 2, "name": "Bain C.", "nationality": "GBR", "seed_time": "1:53.40", "final_time": "1:53.80", "position": 5, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 7, "name": "Szabo S.", "nationality": "HUN", "seed_time": "1:53.60", "final_time": "1:54.10", "position": 6, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 1, "name": "Bucher S.", "nationality": "SUI", "seed_time": "1:54.00", "final_time": "1:54.50", "position": 7, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 8, "name": "Reitshammer B.", "nationality": "AUT", "seed_time": "1:54.20", "final_time": null, "position": null, "dsq": true, "dns": false, "dnf": false }
+    ]
+  },
+  {
+    "competition": "World Championships",
+    "year": 2022,
+    "location": "Budapest",
+    "pool": "LCM",
+    "event": "4x100m Freestyle Relay",
+    "gender": "M",
+    "is_relay": true,
+    "meet_id": "sample",
+    "event_id": "s004",
+    "entries": [
+      { "lane": 4, "name": "USA", "nationality": "USA", "seed_time": "3:10.11", "final_time": "3:09.34", "position": 1, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 5, "name": "Australia", "nationality": "AUS", "seed_time": "3:10.40", "final_time": "3:10.12", "position": 2, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 3, "name": "Great Britain", "nationality": "GBR", "seed_time": "3:11.00", "final_time": "3:10.55", "position": 3, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 6, "name": "France", "nationality": "FRA", "seed_time": "3:11.20", "final_time": "3:10.78", "position": 4, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 2, "name": "Romania", "nationality": "ROU", "seed_time": "3:12.00", "final_time": "3:11.45", "position": 5, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 7, "name": "Brazil", "nationality": "BRA", "seed_time": "3:12.30", "final_time": "3:11.90", "position": 6, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 1, "name": "Russia", "nationality": "ROC", "seed_time": "3:12.50", "final_time": "3:12.20", "position": 7, "dsq": false, "dns": false, "dnf": false },
+      { "lane": 8, "name": "Italy", "nationality": "ITA", "seed_time": "3:12.80", "final_time": "3:12.55", "position": 8, "dsq": false, "dns": false, "dnf": false }
+    ]
+  }
+]
