@@ -49,8 +49,9 @@ export function PerformanceDifferentialChart({
   showDistribution = true,
   height = 340,
 }: Props) {
+  // Only show lanes 1-8
   const data = laneStats
-    .filter((s) => s.differentials.length > 0)
+    .filter((s) => s.lane >= 1 && s.lane <= 8 && s.differentials.length > 0)
     .map((s) => ({
       ...s,
       laneLabel: `Lane ${s.lane}`,
@@ -61,10 +62,12 @@ export function PerformanceDifferentialChart({
     return <div className="chart-empty">No data for selected filters.</div>;
   }
 
-  // Scatter points for individual differentials
-  const scatterData = laneStats.flatMap((s) =>
-    s.differentials.map((d) => ({ laneLabel: `Lane ${s.lane}`, diff: d, size: 1 }))
-  );
+  // Scatter points for individual differentials (lanes 1-8 only)
+  const scatterData = laneStats
+    .filter((s) => s.lane >= 1 && s.lane <= 8)
+    .flatMap((s) =>
+      s.differentials.map((d) => ({ laneLabel: `Lane ${s.lane}`, diff: d, size: 1 }))
+    );
 
   return (
     <div className="chart-wrapper">
