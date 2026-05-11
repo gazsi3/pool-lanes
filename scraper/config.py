@@ -19,15 +19,12 @@ COMPETITION_FILTERS = [
     ("world aquatics swimming championships (25m)", "World Championships", "SCM"),
     ("fina world swimming championships (25m)",     "World Championships", "SCM"),
     ("world swimming championships (25m)",          "World Championships", "SCM"),
-    ("european swimming championships (25m)",       "European Championships", "SCM"),
-    ("len european swimming championships (25m)",   "European Championships", "SCM"),
+    # NOTE: European Championships are excluded — worldaquatics API has the schedule
+    # but no results endpoint works for them (LEN uses a separate results system).
     # --- Long-course ---
     ("olympic games",              "Olympics",               "LCM"),
     ("world aquatics championships","World Championships",   "LCM"),  # 2022+
     ("fina world championships",   "World Championships",   "LCM"),   # old name
-    ("len european aquatics championships",         "European Championships", "LCM"),
-    ("european aquatics championships",             "European Championships", "LCM"),
-    ("european swimming championships",             "European Championships", "LCM"),
 ]
 
 # If any of these appear in the competition name (lowercase), skip it even if
@@ -53,6 +50,9 @@ COMPETITION_EXCLUDES = [
     "synchronised",
     "diving",
     "high diving",
+    "european swimming championships",    # LEN results not on worldaquatics API
+    "european aquatics championships",
+    "len european",
 ]
 
 # Only keep competitions from this date range
