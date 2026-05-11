@@ -81,7 +81,7 @@ export default function App() {
 
       {meta && (
         <footer className="footer">
-          Data from swimrankings.net · Last updated{" "}
+          Data from worldaquatics.com · Last updated{" "}
           {new Date(meta.scraped_at).toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" })}
           {" · "}{meta.record_count.toLocaleString()} finals
         </footer>
